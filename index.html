@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Event Budget Simulator & Scenario Comparison</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: #334155;
+            height: 8px;
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            transition: all 0.15s ease-in-out;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #60a5fa;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-900 text-slate-100 antialiased selection:bg-blue-600 selection:text-white">
+
+    <!-- Main Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
+                    <i data-lucide="calculator" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Event Budget Lab
+                        <span class="text-xs font-semibold bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">Dynamic Scenario Engine</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Model live variable shifts, overheads, hidden taxes, and compare options side-by-side</p>
+                </div>
+            </div>
+            
+            <!-- Quick Preset Selector -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-slate-400 font-medium hidden sm:inline">Load Preset:</span>
+                <button onclick="loadPreset('gala')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700">
+                    🎓 Student Gala
+                </button>
+                <button onclick="loadPreset('workshop')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700">
+                    💻 Campus Hackathon
+                </button>
+                <button onclick="loadPreset('outdoor')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700">
+                    🍔 Food Truck Fest
+                </button>
+                <button onclick="addScenario()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1 shadow-lg shadow-blue-600/20">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Option
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Body Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        <!-- Target Budget & Global Settings Bar -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                    <i data-lucide="target" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <label for="globalBudget" class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Global Target Budget Cap</label>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xl font-bold text-slate-400">$</span>
+                        <input type="number" id="globalBudget" value="5000" min="500" step="250" oninput="updateAll()" class="bg-slate-900 text-white font-bold text-xl px-3 py-1 rounded-lg border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none w-36">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Alert Indicator -->
+            <div id="budgetAlert" class="px-4 py-3 rounded-xl border flex items-center gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+                <i data-lucide="check-circle-2" class="w-5 h-5 flex-shrink-0"></i>
+                <div class="text-xs">
+                    <p class="font-bold uppercase tracking-wider" id="alertTitle">Within Budget Goal</p>
+                    <p id="alertDesc" class="text-slate-300">Active options fit under your target ceiling.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Scenario Levers Grid -->
+        <div id="scenariosGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamic scenario cards will be rendered here by JavaScript -->
+        </div>
+
+        <!-- Analytical Visualization Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Side by Side Cost Comparison Chart -->
+            <div class="lg:col-span-2 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5 text-blue-400"></i>
+                        <h2 class="font-bold text-slate-100">Live Scenario Comparison</h2>
+                    </div>
+                    <span class="text-xs text-slate-400">Includes Base Costs + Service Multiplier</span>
+                </div>
+                <div class="relative flex-1 min-h-[300px] w-full">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Cost Distribution & Hidden Surcharge Impact -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-400"></i>
+                        <h2 class="font-bold text-slate-100">Cost Breakdown (Active Option)</h2>
+                    </div>
+                    <div class="relative min-h-[200px] w-full flex items-center justify-center">
+                        <canvas id="breakdownChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Hidden Overhead Insight Box -->
+                <div id="hiddenFeesInsight" class="mt-4 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200/90 flex gap-2.5">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="font-semibold block text-amber-300">Service Fee & Tax Impact</span>
+                        Your service/tax multiplier adds an extra <span id="feeAddonAmount" class="font-bold text-white">$0</span> to the active scenario!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Master Table -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="table" class="w-5 h-5 text-emerald-400"></i>
+                    <h2 class="font-bold text-slate-100">Side-by-Side Financial Comparison Matrix</h2>
+                </div>
+                <span class="text-xs text-slate-400">Real-time metrics update</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300 border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 uppercase tracking-wider">
+                            <th class="py-3 px-4 font-semibold">Scenario Option</th>
+                            <th class="py-3 px-4 font-semibold">Guests</th>
+                            <th class="py-3 px-4 font-semibold">Fixed Costs</th>
+                            <th class="py-3 px-4 font-semibold">Variable Cost/Head</th>
+                            <th class="py-3 px-4 font-semibold">Subtotal</th>
+                            <th class="py-3 px-4 font-semibold">Multiplier (+%)</th>
+                            <th class="py-3 px-4 font-semibold">Grand Total</th>
+                            <th class="py-3 px-4 font-semibold">Cost / Attendee</th>
+                            <th class="py-3 px-4 font-semibold text-right">Budget Delta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonTableBody" class="divide-y divide-slate-700/50">
+                        <!-- Rows dynamically populated -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Breakeven / Ticket Price Offset Widget -->
+        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/20 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-1">
+                <h3 class="font-bold text-white flex items-center gap-2 text-sm sm:text-base">
+                    <i data-lucide="ticket" class="w-5 h-5 text-blue-400"></i>
+                    Ticket Price / Subsidy Breakeven Calculator
+                </h3>
+                <p class="text-xs text-slate-400 max-w-xl">
+                    If selling tickets or requesting department co-funding to offset the event budget, calculate how much you need to charge per guest to reach $0 net outlay.
+                </p>
+            </div>
+            <div class="flex items-center gap-4 bg-slate-900/80 p-4 rounded-xl border border-slate-700/80 w-full md:w-auto">
+                <div class="text-center px-3 border-r border-slate-800">
+                    <span class="block text-[10px] text-slate-400 uppercase font-semibold">Required Ticket Price</span>
+                    <span id="ticketPrice" class="text-xl font-extrabold text-blue-400">$0.00</span>
+                    <span class="block text-[10px] text-slate-500">to 100% cover active option</span>
+                </div>
+                <div class="text-center px-3">
+                    <span class="block text-[10px] text-slate-400 uppercase font-semibold">50% Subsidized Ticket</span>
+                    <span id="subsidizedTicketPrice" class="text-xl font-extrabold text-emerald-400">$0.00</span>
+                    <span class="block text-[10px] text-slate-500">50% funded by group budget</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <p>Dynamic Event Budgeting Engine • Built for College & Organization Planning</p>
+    </footer>
+
+    <script>
+        // Default initial scenarios data
+        let scenarios = [
+            {
+                id: 'sc_1',
+                name: 'Option A: Campus Student Union',
+                guests: 120,
+                varCost: 18,
+                fixedCost: 450,
+                multiplier: 18,
+                color: '#3b82f6', // Blue
+                active: true
+            },
+            {
+                id: 'sc_2',
+                name: 'Option B: Off-Campus Banquet',
+                guests: 120,
+                varCost: 28,
+                fixedCost: 850,
+                multiplier: 24,
+                color: '#10b981', // Emerald
+                active: false
+            },
+            {
+                id: 'sc_3',
+                name: 'Option C: Outdoor Quad & Catering',
+                guests: 120,
+                varCost: 15,
+                fixedCost: 1100,
+                multiplier: 15,
+                color: '#f59e0b', // Amber
+                active: false
+            }
+        ];
+
+        let comparisonChartInstance = null;
+        let breakdownChartInstance = null;
+
+        // Preset configurations
+        const PRESETS = {
+            gala: [
+                { id: 'sc_1', name: 'Grand Ballroom (Formal)', guests: 150, varCost: 35, fixedCost: 1200, multiplier: 22, color: '#3b82f6', active: true },
+                { id: 'sc_2', name: 'Faculty Club Dining', guests: 150, varCost: 28, fixedCost: 600, multiplier: 18, color: '#10b981', active: false },
+                { id: 'sc_3', name: 'Campus Student Union', guests: 150, varCost: 20, fixedCost: 400, multiplier: 15, color: '#8b5cf6', active: false }
+            ],
+            workshop: [
+                { id: 'sc_1', name: 'Engineering Hall Lab', guests: 80, varCost: 12, fixedCost: 250, multiplier: 10, color: '#3b82f6', active: true },
+                { id: 'sc_2', name: 'Innovation Hub Center', guests: 80, varCost: 18, fixedCost: 500, multiplier: 15, color: '#10b981', active: false }
+            ],
+            outdoor: [
+                { id: 'sc_1', name: 'Main Lawn + Food Trucks', guests: 200, varCost: 16, fixedCost: 750, multiplier: 12, color: '#f59e0b', active: true },
+                { id: 'sc_2', name: 'Amphitheater & Picnic', guests: 200, varCost: 10, fixedCost: 400, multiplier: 10, color: '#ec4899', active: false }
+            ]
+        };
+
+        function calculateMetrics(sc) {
+            const variableTotal = sc.guests * sc.varCost;
+            const subtotal = sc.fixedCost + variableTotal;
+            const multiplierAmount = subtotal * (sc.multiplier / 100);
+            const grandTotal = subtotal + multiplierAmount;
+            const costPerGuest = sc.guests > 0 ? (grandTotal / sc.guests) : 0;
+
+            return {
+                variableTotal,
+                subtotal,
+                multiplierAmount,
+                grandTotal,
+                costPerGuest
+            };
+        }
+
+        function renderScenarioCards() {
+            const grid = document.getElementById('scenariosGrid');
+            grid.innerHTML = '';
+
+            scenarios.forEach((sc, idx) => {
+                const metrics = calculateMetrics(sc);
+                const globalBudget = parseFloat(document.getElementById('globalBudget').value) || 0;
+                const isOver = metrics.grandTotal > globalBudget;
+
+                const cardHTML = `
+                    <div class="bg-slate-800/80 border ${sc.active ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-slate-700/80'} rounded-2xl p-5 shadow-xl transition-all relative flex flex-col justify-between">
+                        <div>
+                            <!-- Header & Active Badge -->
+                            <div class="flex items-center justify-between gap-2 mb-4">
+                                <div class="flex items-center gap-2 flex-1">
+                                    <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${sc.color};"></span>
+                                    <input type="text" value="${sc.name}" onchange="updateScenarioName('${sc.id}', this.value)" 
+                                        class="bg-transparent font-bold text-slate-100 focus:bg-slate-900/80 px-2 py-0.5 rounded border border-transparent focus:border-slate-600 outline-none w-full text-sm sm:text-base">
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="setActiveScenario('${sc.id}')" title="Set as active focus option" 
+                                        class="px-2 py-1 text-[11px] font-semibold rounded-md ${sc.active ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
+                                        ${sc.active ? 'Active Focus' : 'Set Focus'}
+                                    </button>
+                                    ${scenarios.length > 1 ? `
+                                        <button onclick="removeScenario('${sc.id}')" title="Delete scenario" class="p-1 text-slate-400 hover:text-red-400 rounded transition">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Big Cost Metric -->
+                            <div class="bg-slate-900/60 rounded-xl p-3.5 mb-5 border border-slate-800 flex justify-between items-center">
+                                <div>
+                                    <span class="text-[10px] uppercase font-semibold text-slate-400">Estimated Total Cost</span>
+                                    <div class="text-2xl font-extrabold ${isOver ? 'text-red-400' : 'text-emerald-400'}">
+                                        $${metrics.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[10px] uppercase font-semibold text-slate-400">Cost / Guest</span>
+                                    <div class="text-sm font-bold text-slate-200">
+                                        $${metrics.costPerGuest.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SLIDERS CONTROLS -->
+                            <div class="space-y-4">
+                                <!-- Lever 1: Guest Count -->
+                                <div>
+                                    <div class="flex justify-between text-xs font-medium mb-1">
+                                        <span class="text-slate-300 flex items-center gap-1.5">
+                                            <i data-lucide="users" class="w-3.5 h-3.5 text-blue-400"></i> Guest Count (N)
+                                        </span>
+                                        <span class="font-bold text-blue-400">${sc.guests} attendees</span>
+                                    </div>
+                                    <input type="range" min="10" max="500" step="5" value="${sc.guests}" 
+                                        oninput="updateScenarioValue('${sc.id}', 'guests', this.value)">
+                                </div>
+
+                                <!-- Lever 2: Variable Cost per Guest -->
+                                <div>
+                                    <div class="flex justify-between text-xs font-medium mb-1">
+                                        <span class="text-slate-300 flex items-center gap-1.5">
+                                            <i data-lucide="utensils" class="w-3.5 h-3.5 text-emerald-400"></i> Variable Cost / Guest
+                                        </span>
+                                        <span class="font-bold text-emerald-400">$${sc.varCost}/head</span>
+                                    </div>
+                                    <input type="range" min="5" max="100" step="1" value="${sc.varCost}" 
+                                        oninput="updateScenarioValue('${sc.id}', 'varCost', this.value)">
+                                    <span class="text-[10px] text-slate-500 block mt-0.5">Includes food, drinks, favors & per-head swag</span>
+                                </div>
+
+                                <!-- Lever 3: Fixed Overhead & Tech -->
+                                <div>
+                                    <div class="flex justify-between text-xs font-medium mb-1">
+                                        <span class="text-slate-300 flex items-center gap-1.5">
+                                            <i data-lucide="building-2" class="w-3.5 h-3.5 text-amber-400"></i> Fixed Overhead & Tech
+                                        </span>
+                                        <span class="font-bold text-amber-400">$${sc.fixedCost}</span>
+                                    </div>
+                                    <input type="range" min="0" max="3000" step="50" value="${sc.fixedCost}" 
+                                        oninput="updateScenarioValue('${sc.id}', 'fixedCost', this.value)">
+                                    <span class="text-[10px] text-slate-500 block mt-0.5">Venue base rate, AV gear, DJ, security & permits</span>
+                                </div>
+
+                                <!-- Lever 4: Overhead & Tax Multiplier -->
+                                <div>
+                                    <div class="flex justify-between text-xs font-medium mb-1">
+                                        <span class="text-slate-300 flex items-center gap-1.5">
+                                            <i data-lucide="percent" class="w-3.5 h-3.5 text-indigo-400"></i> Tax, Service & Buffer %
+                                        </span>
+                                        <span class="font-bold text-indigo-400">+${sc.multiplier}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="35" step="1" value="${sc.multiplier}" 
+                                        oninput="updateScenarioValue('${sc.id}', 'multiplier', this.value)">
+                                    <span class="text-[10px] text-slate-500 block mt-0.5">Gratuity (18-20%), sales tax & contingency buffer</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer indicator -->
+                        <div class="mt-5 pt-3 border-t border-slate-700/60 flex justify-between items-center text-[11px] text-slate-400">
+                            <span>Base Subtotal: <b class="text-slate-200">$${metrics.subtotal.toLocaleString()}</b></span>
+                            <span>Hidden Surcharge: <b class="text-amber-400">+$${metrics.multiplierAmount.toFixed(0)}</b></span>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += cardHTML;
+            });
+
+            // Re-initialize Lucide icons
+            lucide.createIcons();
+        }
+
+        function updateScenarioValue(id, field, value) {
+            const sc = scenarios.find(s => s.id === id);
+            if (!sc) return;
+            sc[field] = parseFloat(value);
+            updateAll();
+        }
+
+        function updateScenarioName(id, name) {
+            const sc = scenarios.find(s => s.id === id);
+            if (sc) sc.name = name;
+            updateCharts();
+            updateTable();
+        }
+
+        function setActiveScenario(id) {
+            scenarios.forEach(sc => sc.active = (sc.id === id));
+            renderScenarioCards();
+            updateAll();
+        }
+
+        function addScenario() {
+            if (scenarios.length >= 5) {
+                return; // Max 5 scenarios for visual clarity
+            }
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+            const newId = 'sc_' + Date.now();
+            const color = colors[scenarios.length % colors.length];
+            const baseSc = scenarios[0] || { guests: 100, varCost: 20, fixedCost: 500, multiplier: 18 };
+
+            scenarios.push({
+                id: newId,
+                name: `Option ${String.fromCharCode(65 + scenarios.length)}`,
+                guests: baseSc.guests,
+                varCost: baseSc.varCost + 5,
+                fixedCost: baseSc.fixedCost + 200,
+                multiplier: baseSc.multiplier,
+                color: color,
+                active: false
+            });
+
+            renderScenarioCards();
+            updateAll();
+        }
+
+        function removeScenario(id) {
+            if (scenarios.length <= 1) return;
+            scenarios = scenarios.filter(s => s.id !== id);
+            if (!scenarios.some(s => s.active)) {
+                scenarios[0].active = true;
+            }
+            renderScenarioCards();
+            updateAll();
+        }
+
+        function loadPreset(key) {
+            if (!PRESETS[key]) return;
+            scenarios = JSON.parse(JSON.stringify(PRESETS[key]));
+            renderScenarioCards();
+            updateAll();
+        }
+
+        function initCharts() {
+            // Comparison Bar Chart
+            const ctxComp = document.getElementById('comparisonChart').getContext('2d');
+            comparisonChartInstance = new Chart(ctxComp, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Fixed Overhead ($)',
+                            data: [],
+                            backgroundColor: '#f59e0b',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Variable Food/Head ($)',
+                            data: [],
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Tax & Gratuity Multiplier ($)',
+                            data: [],
+                            backgroundColor: '#8b5cf6',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { family: 'Inter' } }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { family: 'Inter' } }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                }
+            });
+
+            // Breakdown Donut Chart
+            const ctxBreak = document.getElementById('breakdownChart').getContext('2d');
+            breakdownChartInstance = new Chart(ctxBreak, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Fixed Base', 'Variable Food/Head', 'Tax/Service Fee'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#f59e0b', '#3b82f6', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } }
+                        }
+                    },
+                    cutout: '68%'
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!comparisonChartInstance || !breakdownChartInstance) return;
+
+            const labels = scenarios.map(s => s.name);
+            const fixedData = [];
+            const varData = [];
+            const multData = [];
+
+            scenarios.forEach(s => {
+                const m = calculateMetrics(s);
+                fixedData.push(s.fixedCost);
+                varData.push(m.variableTotal);
+                multData.push(m.multiplierAmount);
+            });
+
+            comparisonChartInstance.data.labels = labels;
+            comparisonChartInstance.data.datasets[0].data = fixedData;
+            comparisonChartInstance.data.datasets[1].data = varData;
+            comparisonChartInstance.data.datasets[2].data = multData;
+            comparisonChartInstance.update();
+
+            // Active Scenario Breakdown Chart
+            const activeSc = scenarios.find(s => s.active) || scenarios[0];
+            const activeMetrics = calculateMetrics(activeSc);
+
+            breakdownChartInstance.data.datasets[0].data = [
+                activeSc.fixedCost,
+                activeMetrics.variableTotal,
+                activeMetrics.multiplierAmount
+            ];
+            breakdownChartInstance.update();
+
+            // Update Fee Insight Callout
+            document.getElementById('feeAddonAmount').innerText = `$${activeMetrics.multiplierAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('comparisonTableBody');
+            tbody.innerHTML = '';
+
+            const globalBudget = parseFloat(document.getElementById('globalBudget').value) || 0;
+            let lowestCost = Infinity;
+            let winningId = null;
+
+            scenarios.forEach(sc => {
+                const m = calculateMetrics(sc);
+                if (m.grandTotal < lowestCost) {
+                    lowestCost = m.grandTotal;
+                    winningId = sc.id;
+                }
+            });
+
+            scenarios.forEach(sc => {
+                const m = calculateMetrics(sc);
+                const delta = globalBudget - m.grandTotal;
+                const isWinner = sc.id === winningId && scenarios.length > 1;
+
+                const tr = document.createElement('tr');
+                tr.className = `${sc.active ? 'bg-blue-950/20' : ''} hover:bg-slate-800/50 transition`;
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-semibold text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${sc.color};"></span>
+                        ${sc.name}
+                        ${isWinner ? '<span class="ml-1 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">Lowest Cost</span>' : ''}
+                    </td>
+                    <td class="py-3 px-4">${sc.guests}</td>
+                    <td class="py-3 px-4">$${sc.fixedCost.toLocaleString()}</td>
+                    <td class="py-3 px-4">$${sc.varCost}</td>
+                    <td class="py-3 px-4">$${m.subtotal.toLocaleString()}</td>
+                    <td class="py-3 px-4">+${sc.multiplier}%</td>
+                    <td class="py-3 px-4 font-bold text-white">$${m.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="py-3 px-4 text-slate-300">$${m.costPerGuest.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-right font-bold ${delta >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+                        ${delta >= 0 ? '+$' + delta.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' under' : '-$' + Math.abs(delta).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' over'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Update Global Alert Box
+            const activeSc = scenarios.find(s => s.active) || scenarios[0];
+            const activeMetrics = calculateMetrics(activeSc);
+            const alertBox = document.getElementById('budgetAlert');
+            const alertTitle = document.getElementById('alertTitle');
+            const alertDesc = document.getElementById('alertDesc');
+
+            if (activeMetrics.grandTotal <= globalBudget) {
+                alertBox.className = 'px-4 py-3 rounded-xl border flex items-center gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+                alertTitle.innerText = 'Active Option Within Budget Cap';
+                alertDesc.innerText = `You have $${(globalBudget - activeMetrics.grandTotal).toLocaleString('en-US', { maximumFractionDigits: 0 })} remaining in buffer.`;
+            } else {
+                alertBox.className = 'px-4 py-3 rounded-xl border flex items-center gap-3 bg-red-500/10 border-red-500/30 text-red-400';
+                alertTitle.innerText = 'Over Budget Limit!';
+                alertDesc.innerText = `Exceeds cap by $${(activeMetrics.grandTotal - globalBudget).toLocaleString('en-US', { maximumFractionDigits: 0 })}. Lower guests or vendor fees.`;
+            }
+
+            // Update Ticket Breakeven Widget
+            if (activeSc.guests > 0) {
+                const fullTicket = activeMetrics.grandTotal / activeSc.guests;
+                document.getElementById('ticketPrice').innerText = `$${fullTicket.toFixed(2)}`;
+                document.getElementById('subsidizedTicketPrice').innerText = `$${(fullTicket / 2).toFixed(2)}`;
+            }
+        }
+
+        function updateAll() {
+            renderScenarioCards();
+            updateCharts();
+            updateTable();
+        }
+
+        window.onload = function() {
+            initCharts();
+            renderScenarioCards();
+            updateAll();
+        };
+    </script>
+</body>
+</html>
